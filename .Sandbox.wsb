@@ -1,0 +1,29 @@
+<Configuration>
+    <MemoryInMB>6144</MemoryInMB>
+    <Networking>Disable</Networking>
+    <MappedFolders>
+        <MappedFolder>
+            <HostFolder>C:\Users\TEST_USER\Desktop\portable\RebexTinySftpServer-Binaries-Latest\.data</HostFolder>
+            <ReadOnly>true</ReadOnly>
+        </MappedFolder>
+        <MappedFolder>
+            <HostFolder>C:\Users\TEST_USER\Desktop\portable\RebexTinySftpServer-Binaries-Latest</HostFolder>
+            <ReadOnly>true</ReadOnly>
+        </MappedFolder>
+        <MappedFolder>
+            <HostFolder>C:\Users\TEST_USER\Desktop\portable\sandboxes\scripts</HostFolder>
+            <SandboxFolder>C:\Users\WDAGUtilityAccount\Desktop\scripts</SandboxFolder>
+            <ReadOnly>true</ReadOnly>
+        </MappedFolder>
+    </MappedFolders>
+    <Security>
+        <Isolation>Strict</Isolation>
+        <ProtectedClient>Enable</ProtectedClient>
+    </Security>
+    <AudioInput>Disable</AudioInput>
+    <VideoInput>Disable</VideoInput>
+    <ClipboardRedirection>Disable</ClipboardRedirection>
+    <LogonCommand>
+        <Command>powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Start-Process powershell.exe -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File C:\Users\WDAGUtilityAccount\Desktop\scripts\startup_init_robust.ps1' -Wait"</Command>
+  </LogonCommand>
+</Configuration>
