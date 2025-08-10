@@ -1,4 +1,4 @@
-# Windows Sandbox Startup Script - Optimized
+# Windows Sandbox Startup Script
 # Configures sandbox environment with dark mode and VLC setup
 
 # Configuration
