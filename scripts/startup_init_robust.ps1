@@ -8,6 +8,7 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 $SCRIPTS_PATH = "C:\Users\WDAGUtilityAccount\Desktop\scripts"
 $SCRIPT_CONFIGS = @(
+    @{ Name = "Performance Optimizer"; File = "performance_optimizer.ps1"; Critical = $false }
     @{ Name = "Dark Mode Setup"; File = "dark_mode.ps1"; Critical = $false }
     @{ Name = "VLC Media Player Setup"; File = "open_media_with_vlc.ps1"; Critical = $false }
     @{ Name = "Brave Browser Setup"; File = "brave_setup.ps1"; Critical = $false }
