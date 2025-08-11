@@ -10,6 +10,9 @@ $SCRIPTS_PATH = "C:\Users\WDAGUtilityAccount\Desktop\scripts"
 $SCRIPT_CONFIGS = @(
     @{ Name = "Dark Mode Setup"; File = "dark_mode.ps1"; Critical = $false }
     @{ Name = "VLC Media Player Setup"; File = "open_media_with_vlc.ps1"; Critical = $false }
+    @{ Name = "Brave Browser Setup"; File = "brave_setup.ps1"; Critical = $false }
+    @{ Name = "Tor Browser Setup"; File = "tor_browser_setup_simple.ps1"; Critical = $false }
+    @{ Name = "Notepad++ File Associations Setup"; File = "notepadpp_file_associations.ps1"; Critical = $false }
 )
 
 # Initialize
