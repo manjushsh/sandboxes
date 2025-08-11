@@ -35,33 +35,29 @@ try {
 
 # Check if already installed
 $versionFile = Join-Path $TOR_INSTALL_PATH "version.txt"
-if (Test-Path $versionFile) {
-    $currentVersion = Get-Content $versionFile -ErrorAction SilentlyContinue
-    Write-Host "Current version: $currentVersion" -ForegroundColor Cyan
-}
+$currentVersion = $null
 
-# Try to download latest version info
-Write-Host "Fetching latest Tor Browser version..." -ForegroundColor Yellow
-try {
-    $downloadPage = Invoke-WebRequest -Uri "https://www.torproject.org/download/" -UseBasicParsing
-    # Look for the Windows portable download link which contains the version
-    $versionMatch = $downloadPage.Content | Select-String -Pattern 'tor-browser-windows-x86_64-portable-(\d+\.\d+\.\d+)\.exe'
+# First check if Tor Browser is actually installed (not just version file exists)
+$torInstalled = $false
+$updaterPath = Join-Path $TOR_INSTALL_PATH "Browser\updater.exe"
+
+if (Test-Path $TOR_INSTALL_PATH) {
+    $torExePaths = @(
+        (Join-Path $TOR_INSTALL_PATH "Start Tor Browser.exe"),
+        (Join-Path $TOR_INSTALL_PATH "Browser\firefox.exe")
+    )
     
-    if ($versionMatch) {
-        $latestVersion = $versionMatch.Matches[0].Groups[1].Value
-        Write-Host "Latest version: $latestVersion" -ForegroundColor Cyan
-    } else {
-        $latestVersion = "14.5.5"  # Updated fallback version
-        Write-Host "Using fallback version: $latestVersion" -ForegroundColor Yellow
+    foreach ($exePath in $torExePaths) {
+        if (Test-Path $exePath) {
+            $torInstalled = $true
+            Write-Host "Found Tor Browser executable: $exePath" -ForegroundColor Green
+            break
+        }
     }
-} catch {
-    $latestVersion = "14.5.5"  # Updated fallback version
-    Write-Host "Could not fetch version, using fallback: $latestVersion" -ForegroundColor Yellow
 }
 
-# Check if update needed
-if ((Test-Path $versionFile) -and ((Get-Content $versionFile -ErrorAction SilentlyContinue) -eq $latestVersion)) {
-    Write-Host "Tor Browser is already up to date" -ForegroundColor Green
+if ($torInstalled) {
+    Write-Host "Tor Browser is installed. Checking for updates using built-in updater..." -ForegroundColor Green
     
     # Create launcher if missing
     $launcherPath = Join-Path $TOR_INSTALL_PATH "Launch-Tor-Browser.bat"
@@ -81,7 +77,49 @@ if exist "Start Tor Browser.exe" (
         $launcherContent | Out-File -FilePath $launcherPath -Encoding ASCII
         Write-Host "Created launcher: $launcherPath" -ForegroundColor Green
     }
+    
+    # Try to run the updater if it exists
+    if (Test-Path $updaterPath) {
+        Write-Host "Running Tor Browser updater: $updaterPath" -ForegroundColor Yellow
+        try {
+            $process = Start-Process -FilePath $updaterPath -WorkingDirectory (Join-Path $TOR_INSTALL_PATH "Browser") -Wait -PassThru -NoNewWindow
+            Write-Host "Updater completed with exit code: $($process.ExitCode)" -ForegroundColor Cyan
+        } catch {
+            Write-Host "Updater failed: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "Tor Browser is still available, but update check failed" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "Updater not found at: $updaterPath" -ForegroundColor Yellow
+        Write-Host "Tor Browser is installed but updater is not available" -ForegroundColor Yellow
+    }
+    
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host "TOR BROWSER READY!" -ForegroundColor Green
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host "Installation path: $TOR_INSTALL_PATH" -ForegroundColor Cyan
+    Write-Host "Launcher: $launcherPath" -ForegroundColor Cyan
     exit 0
+} else {
+    Write-Host "No existing installation found. Installing Tor Browser..." -ForegroundColor Yellow
+}
+
+# Try to download latest version info (only if installation needed)
+Write-Host "Fetching latest Tor Browser version..." -ForegroundColor Yellow
+try {
+    $downloadPage = Invoke-WebRequest -Uri "https://www.torproject.org/download/" -UseBasicParsing
+    # Look for the Windows portable download link which contains the version
+    $versionMatch = $downloadPage.Content | Select-String -Pattern 'tor-browser-windows-x86_64-portable-(\d+\.\d+\.\d+)\.exe'
+    
+    if ($versionMatch) {
+        $latestVersion = $versionMatch.Matches[0].Groups[1].Value.Trim()
+        Write-Host "Latest version: $latestVersion" -ForegroundColor Cyan
+    } else {
+        $latestVersion = "14.5.5"  # Updated fallback version
+        Write-Host "Using fallback version: $latestVersion" -ForegroundColor Yellow
+    }
+} catch {
+    $latestVersion = "14.5.5"  # Updated fallback version
+    Write-Host "Could not fetch version, using fallback: $latestVersion" -ForegroundColor Yellow
 }
 
 # Download Tor Browser
@@ -122,41 +160,70 @@ try {
 # Install Tor Browser
 Write-Host "Installing Tor Browser..." -ForegroundColor Yellow
 try {
-    # Run installer
+    # Run installer - portable installer extracts to current directory by default
+    Write-Host "Running installer: $downloadPath" -ForegroundColor Yellow
+    
+    # Change to target directory before running installer
+    $originalLocation = Get-Location
+    Set-Location $SFTP_BASE_PATH
+    
     $process = Start-Process -FilePath $downloadPath -Wait -PassThru -NoNewWindow
     
-    # Look for installation
+    # Restore original location
+    Set-Location $originalLocation
+    
+    # Look for installation in multiple possible locations
     $possiblePaths = @(
+        $TOR_INSTALL_PATH,  # Target location
+        (Join-Path $SFTP_BASE_PATH "Tor Browser"),  # Same as above but explicit
         "$env:USERPROFILE\Desktop\Tor Browser",
-        "$env:LOCALAPPDATA\Tor Browser",
-        "$env:APPDATA\Tor Browser"
+        "$env:LOCALAPPDATA\Tor Browser", 
+        "$env:APPDATA\Tor Browser",
+        (Join-Path (Split-Path $downloadPath -Parent) "Tor Browser")  # Temp directory
     )
     
     $found = $false
+    $sourcePath = $null
+    
     foreach ($path in $possiblePaths) {
+        Write-Host "Checking: $path" -ForegroundColor Gray
         if (Test-Path $path) {
             Write-Host "Found Tor Browser at: $path" -ForegroundColor Green
+            $sourcePath = $path
             
-            # Remove old installation
-            if (Test-Path $TOR_INSTALL_PATH) {
-                Remove-Item $TOR_INSTALL_PATH -Recurse -Force -ErrorAction SilentlyContinue
+            # If it's already in the target location, we're done
+            if ($path -eq $TOR_INSTALL_PATH) {
+                $found = $true
+                break
             }
             
-            # Copy to target location
-            Copy-Item -Path $path -Destination $TOR_INSTALL_PATH -Recurse -Force
-            
-            # Clean up original
-            Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
-            
-            $found = $true
-            break
+            # Otherwise, move it to target location
+            try {
+                # Remove old installation
+                if (Test-Path $TOR_INSTALL_PATH) {
+                    Write-Host "Removing old installation..." -ForegroundColor Yellow
+                    Remove-Item $TOR_INSTALL_PATH -Recurse -Force -ErrorAction SilentlyContinue
+                }
+                
+                # Copy to target location
+                Write-Host "Moving to target location..." -ForegroundColor Yellow
+                Copy-Item -Path $path -Destination $TOR_INSTALL_PATH -Recurse -Force
+                
+                # Clean up original if it's not the target
+                if ($path -ne $TOR_INSTALL_PATH) {
+                    Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+                }
+                
+                $found = $true
+                break
+            } catch {
+                Write-Host "Failed to move from $path : $($_.Exception.Message)" -ForegroundColor Red
+                continue
+            }
         }
     }
     
     if ($found) {
-        # Save version
-        $latestVersion | Out-File -FilePath $versionFile -Encoding utf8
-        
         # Create launcher
         $launcherPath = Join-Path $TOR_INSTALL_PATH "Launch-Tor-Browser.bat"
         $launcherContent = @"
